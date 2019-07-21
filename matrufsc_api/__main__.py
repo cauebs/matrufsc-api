@@ -1,10 +1,12 @@
 import json
-
-from click import command, argument, option, echo, format_filename
-from aiohttp.web import Application, run_app
-from . import jobs, handlers
 from pathlib import Path
-from utils import log
+
+from aiohttp.web import Application, run_app
+from click import argument, command, format_filename, option
+
+from .utils import log
+
+from . import handlers, jobs
 
 
 @command()
@@ -26,7 +28,7 @@ def main(database: str, host: str, port: int, update_now: bool, update_interval:
     app["update_interval"] = update_interval
 
     if update_now:
-        app.on_startup.append(jobs.start_database_update)
+        app.on_startup.append(jobs.update_database)
     else:
         if not Path(database).exists():
             log.error(format_filename(database) + " does not exist")
@@ -34,7 +36,8 @@ def main(database: str, host: str, port: int, update_now: bool, update_interval:
 
         with open(database) as f:
             app["database"] = json.load(f)
-        app.on_startup.append(jobs.schedule_database_update)
+
+    app.on_startup.append(jobs.repeat_database_update)
 
     app.router.add_get("/courses", handlers.courses)
     app.router.add_get("/classes", handlers.classes)
